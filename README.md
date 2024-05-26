@@ -27,7 +27,7 @@ Be aware that some hosts the browser will refuse to load unless certain criteria
 
 ### Example blocked records to store in redis:
 
-```
+```sh
 valkey.kush:6379> KEYS dns_block:*
 1) "dns_block:googletagservices.com"
 2) "dns_block:analytics.twitter.com"
@@ -44,3 +44,16 @@ The record just has to exist it doesn't matter the value, however I just use "1"
 In order to use this you will have to switch to a coredns build compiled with this plugin, for simplicity sake you can use the docker image that is built in github actions.
 
 `ghcr.io/dustinrouillard/corehole`
+
+If you want to build it yourself, you can just clone the [coredns](https://github.com/coredns/coredns) repo and add the following to the `plugin.cfg` file in the root, directly under `etcd:etcd`
+
+```
+etcd:etcd # Put it below this line, this is the order it executes the plugin on your query.
+corehole:github.com/dustinrouillard/corehole
+```
+
+Get the package `go get github.com/dustinrouillard/corehole`
+
+Then run `go generate`, followed by `go build` with whatever settings you need to build for your target environment.
+
+and then to build the image as seen in the [workflow](https://github.com/dustinrouillard/corehole/blob/main/.github/workflows/production.yaml#L57) we replace the base image to debian and remove the nonroot user line.
