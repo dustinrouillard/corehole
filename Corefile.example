@@ -1,0 +1,9 @@
+. {
+  log
+  cache
+  errors
+
+  corehole {
+    redis redis://redis:6379
+  }
+}

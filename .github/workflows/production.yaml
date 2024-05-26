@@ -1,0 +1,67 @@
+name: Production
+concurrency:
+  group: dns_coredns
+  cancel-in-progress: true
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  build:
+    name: Clone coredns, add plugin, get plugin, generate, build, and push.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+        with:
+          repository: coredns/coredns
+          ref: 621ffde538e57772783f9e4a0df590d2f0d71beb
+
+      - name: Add plugin
+        run: sed -i 's/etcd:etcd/etcd:etcd\ncorehole:github.com\/dustinrouillard\/corehole/' plugin.cfg
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ">=1.22.0"
+
+      - name: Setup git
+        run: git config --global url."https://github.com/".insteadOf "https://github.com/"
+
+      - name: Go get plugin
+        env:
+          GOPRIVATE: github.com/dustinrouillard
+        run: go get github.com/dustinrouillard/corehole@${{ github.ref_name }}
+
+      - name: Go generate and go build
+        env:
+          GOPRIVATE: github.com/dustinrouillard
+        run: go generate && go build .
+
+      - name: Chmod
+        run: chmod +x ./coredns
+
+      - name: Login to ghcr
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Add image source label
+        run: sed -i '16 i \LABEL org.opencontainers.image.source https://github.com/${{ github.repository }}' Dockerfile
+
+      - name: Change base to debian slim
+        run: sed -i 's/gcr.io\/distroless\/static-debian11:nonroot/debian:stable-slim/' Dockerfile
+
+      - name: Remove user field
+        run: sed -i '19 c \' Dockerfile
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}
