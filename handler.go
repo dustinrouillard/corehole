@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
@@ -19,6 +20,8 @@ func (corehole *CoreHole) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 	if location == 0 {
 		return plugin.NextOrFailure(qname, corehole.Next, ctx, w, r)
 	}
+
+	reportBlockedRequest(metrics.WithServer(ctx), strings.TrimSuffix(qname, "."))
 
 	answers := make([]dns.RR, 0, 10)
 
